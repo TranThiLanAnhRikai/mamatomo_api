@@ -2,17 +2,23 @@ from flask import Flask, jsonify, request
 import os
 import uuid
 import json
+import mysql.connector
+import base64
 
-folder_name = "uploads"
+
+folder_name = "users_avatars"
 image_folder = os.path.abspath(folder_name)
 
-import mysql.connector
+# image_folder = "users_avatars"
+
 app = Flask(__name__)
 
-@app.route('/users', methods=['GET'])
-def get_users():
+@app.route('/get_user', methods=['GET'])
+def get_user():
     # Retrieve the username from the query parameters
     username = request.args.get('username')
+
+   
 
     # Connect to the database
     db_connection = mysql.connector.connect(
@@ -27,28 +33,31 @@ def get_users():
     query = "SELECT * FROM users WHERE name = %s"
     cursor.execute(query, (username,))
     users = cursor.fetchall()
-
+    print("username")
+    print(username)
+    print(users)
+    print(type(users[0][2]))
     # Close the database connection
     cursor.close()
     db_connection.close()
 
-    # Convert the user(s) data to a JSON response
-    response = []
-    for user in users:
-        user_data = {
-            'id': user[0],
-            'name': user[1],
-            'pw': user[2],
-            'age': user[3],
-            'intro': user[4],
-            'address': user[5],
-            'image_path': user[6],
-            'created_at': str(user[7]),
-            'edited_at': str(user[8]),
-            'deleted_at': str(user[9])
-        }
-        response.append(user_data)
-
+    # # Convert the user(s) data to a JSON response
+    # response = []
+    # for user in users:
+    #     user_data = {
+    #         'id': user[0],
+    #         'name': user[1],
+    #         'pw': user[2],
+    #         'age': user[3],
+    #         'intro': user[4],
+    #         'address': user[5],
+    #         'image_path': user[6],
+    #         'created_at': str(user[7]),
+    #         'edited_at': str(user[8]),
+    #         'deleted_at': str(user[9])
+    #     }
+    #     response.append(user_data)
+    response = {"pw": users[0][2]}
     return jsonify(response)
 
 
@@ -64,24 +73,25 @@ def create_user():
     intro = user_data.get('intro')
     address = user_data.get('address')
     image = user_data.get('image')
-    print('image {}'.format(image))
     children = user_data.get('children')
     hobbies = user_data.get('hobbies')
-    # image_bytes = bytes(image)
-    # image_data_str = json.dumps(image)
-    # print(image_data_str)
 
-    # Get the uploaded image file
-    # image_file = request.files['image']
-    
-    # # Generate a unique filename
-    # unique_filename = str(uuid.uuid4()) + '.jpg'
+    unique_filename = str(uuid.uuid4()) + '.jpg'
 
-    # # Save the image to the folder
-    # image_path = os.path.join(image_folder, unique_filename)
-    # image_file.save(image_path)
+    # Decode the base64 image data
+    image_data = base64.b64decode(image)
 
+    # Specify the path to save the image
+    image_path = os.path.join(image_folder, unique_filename)
 
+    # image_folder = "user_avatars"
+    # uniq_filename = "3dd..fdasfsd.jpg"
+
+    # image_path = user_avatars/3dd..fdasfsd.jpg
+
+    # Save the image to the server folder
+    with open(image_path, 'wb') as file:
+        file.write(image_data)
     # Connect to the database
     db_connection = mysql.connector.connect(
         host='localhost',
@@ -93,7 +103,7 @@ def create_user():
     # Execute the SQL query to insert the new user into the database
     cursor = db_connection.cursor()
     user_query = "INSERT INTO users (name, pw, age, intro, address, image_path) VALUES (%s, %s, %s, %s, %s, %s)"
-    cursor.execute(user_query, (name, password, age, intro, address, image))
+    cursor.execute(user_query, (name, password, age, intro, address, image_path))
     user_id = cursor.lastrowid  # Get the ID of the newly inserted user
 
     # Insert the chosen hobbies into the users_hobbies table
@@ -121,4 +131,3 @@ def create_user():
 
 if __name__ == '__main__':
     app.run(host='localhost', port=8000)
-

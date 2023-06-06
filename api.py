@@ -13,33 +13,85 @@ image_folder = os.path.abspath(folder_name)
 
 app = Flask(__name__)
 
-@app.route('/get_user', methods=['GET'])
+@app.route('/get_user', methods=['POST'])
 def get_user():
-    # Retrieve the username from the query parameters
-    username = request.args.get('username')
-
-   
-
-    # Connect to the database
     db_connection = mysql.connector.connect(
         host='localhost',
         user='root',
         password='Duyan278#',
         database='mamatomo_database'
     )
+    username = request.json.get('username')
+
+    cursor = db_connection.cursor()
+
+    if username:
+        # Retrieve a specific user by username
+        query = "SELECT * FROM users WHERE name = %s"
+        cursor.execute(query, (username,))
+        user = cursor.fetchone()
+
+        if user:
+            user_dict = {
+                'id': user[0],
+                'name': user[1],
+                'pw': user[2],
+                'age': user[3],
+                'intro': user[4],
+                'address': user[5],
+                'image_path': user[6],
+                'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
+                'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
+                'deleted_at': user[9]
+            }
+
+            return jsonify(user_dict)
+        else:
+            return jsonify({'error': 'User not found'})
+    else:
+        # Retrieve all users
+        query = "SELECT * FROM users"
+        cursor.execute(query)
+        users = cursor.fetchall()
+
+        user_list = []
+        for user in users:
+            user_dict = {
+                'id': user[0],
+                'name': user[1],
+                'pw': user[2],
+                'age': user[3],
+                'intro': user[4],
+                'address': user[5],
+                'image_path': user[6],
+                'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
+                'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
+                'deleted_at': user[9]
+            }
+            user_list.append(user_dict)
+
+        return jsonify(user_list)
+
+    # Connect to the database
+    # db_connection = mysql.connector.connect(
+    #     host='localhost',
+    #     user='root',
+    #     password='Duyan278#',
+    #     database='mamatomo_database'
+    # )
 
     # Execute the SQL query to fetch the user(s) by username
-    cursor = db_connection.cursor()
-    query = "SELECT * FROM users WHERE name = %s"
-    cursor.execute(query, (username,))
-    users = cursor.fetchall()
-    print("username")
-    print(username)
-    print(users)
-    print(type(users[0][2]))
-    # Close the database connection
-    cursor.close()
-    db_connection.close()
+    # cursor = db_connection.cursor()
+    # query = "SELECT * FROM users WHERE name = %s"
+    # cursor.execute(query, (username,))
+    # users = cursor.fetchall()
+    # print("username")
+    # print(username)
+    # print(users)
+    # print(type(users[0][2]))
+    # # Close the database connection
+    # cursor.close()
+    # db_connection.close()
 
     # # Convert the user(s) data to a JSON response
     # response = []

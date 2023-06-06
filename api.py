@@ -14,104 +14,193 @@ image_folder = os.path.abspath(folder_name)
 app = Flask(__name__)
 
 @app.route('/get_user', methods=['POST'])
+# def get_user():
+#     db_connection = mysql.connector.connect(
+#         host='localhost',
+#         user='root',
+#         password='Duyan278#',
+#         database='mamatomo_database'
+#     )
+#     username = request.json.get('username')
+
+#     cursor = db_connection.cursor()
+
+#     if username:
+#         # Retrieve a specific user by username
+#         query = "SELECT * FROM users WHERE name = %s"
+#         cursor.execute(query, (username,))
+#         user = cursor.fetchone()
+
+#         if user:
+#             user_dict = {
+#                 'id': user[0],
+#                 'name': user[1],
+#                 'pw': user[2],
+#                 'age': user[3],
+#                 'intro': user[4],
+#                 'address': user[5],
+#                 'image_path': user[6],
+#                 'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
+#                 'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
+#                 'deleted_at': user[9]
+#             }
+
+#             # Retrieve hobbies for the user
+#             query = """
+#                 SELECT hobbies_id
+#                 FROM users_hobbies
+#                 INNER JOIN users ON users.id = users_hobbies.user_id
+#                 WHERE users_hobbies.user_id = %s
+#             """
+#             cursor.execute(query, (user[0],))
+#             hobbies = cursor.fetchall()
+#             hobby_list = [hobby[0] for hobby in hobbies]
+#             user_dict['hobbies'] = hobby_list
+
+#             return jsonify(user_dict)
+#         else:
+#             return jsonify({'error': 'User not found'})
+#     else:
+#         # Retrieve all users
+#         query = "SELECT * FROM users"
+#         cursor.execute(query)
+#         users = cursor.fetchall()
+
+#         user_list = []
+#         for user in users:
+#             user_dict = {
+#                 'id': user[0],
+#                 'name': user[1],
+#                 'pw': user[2],
+#                 'age': user[3],
+#                 'intro': user[4],
+#                 'address': user[5],
+#                 'image_path': user[6],
+#                 'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
+#                 'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
+#                 'deleted_at': user[9]
+#             }
+
+#             # Retrieve hobbies for each user
+#             query = """
+#                 SELECT hobbies.name
+#                 FROM hobbies
+#                 INNER JOIN users_hobbies ON hobbies.id = users_hobbies.hobby_id
+#                 WHERE users_hobbies.user_id = %s
+#             """
+#             cursor.execute(query, (user[0],))
+#             hobbies = cursor.fetchall()
+#             hobby_list = [hobby[0] for hobby in hobbies]
+#             user_dict['hobbies'] = hobby_list
+
+#             user_list.append(user_dict)
+
+#         return jsonify(user_list)
+
 def get_user():
+    # Retrieve the username from the request body
+    username = request.json.get('username')
+
     db_connection = mysql.connector.connect(
         host='localhost',
         user='root',
         password='Duyan278#',
         database='mamatomo_database'
     )
-    username = request.json.get('username')
 
     cursor = db_connection.cursor()
 
     if username:
-        # Retrieve a specific user by username
-        query = "SELECT * FROM users WHERE name = %s"
+        # Query to retrieve a single user and their associated children
+        query = """
+        SELECT u.id, u.name, u.pw, u.age, u.intro, u.address, u.image_path,
+               u.created_at, u.edited_at, u.deleted_at,
+               c.id, c.name, c.gender_id, c.birthday, c.created_at, c.edited_at, c.deleted_at
+        FROM users u
+        LEFT JOIN children c ON u.id = c.parent_id
+        WHERE u.name = %s
+        """
+
         cursor.execute(query, (username,))
-        user = cursor.fetchone()
+        rows = cursor.fetchall()
 
-        if user:
-            user_dict = {
-                'id': user[0],
-                'name': user[1],
-                'pw': user[2],
-                'age': user[3],
-                'intro': user[4],
-                'address': user[5],
-                'image_path': user[6],
-                'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
-                'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
-                'deleted_at': user[9]
-            }
+        if rows:
+            user = {}
+            user['id'] = rows[0][0]
+            user['name'] = rows[0][1]
+            user['pw'] = rows[0][2]
+            user['age'] = rows[0][3]
+            user['intro'] = rows[0][4]
+            user['address'] = rows[0][5]
+            user['image_path'] = rows[0][6]
+            user['created_at'] = rows[0][7].strftime('%Y-%m-%d %H:%M:%S')
+            user['edited_at'] = rows[0][8].strftime('%Y-%m-%d %H:%M:%S')
+            user['deleted_at'] = rows[0][9]
 
-            return jsonify(user_dict)
+            children = []
+            for row in rows:
+                if row[10]:  # Check if the child ID is not null (indicating a child record exists)
+                    child = {
+                        'id': row[10],
+                        'name': row[11],
+                        'gender_id': row[12],
+                        'birthday': row[13],
+                        # 'birthday': row[13].strftime('%Y-%m-%d'),
+                        'created_at': row[14].strftime('%Y-%m-%d %H:%M:%S'),
+                        'edited_at': row[15].strftime('%Y-%m-%d %H:%M:%S'),
+                        'deleted_at': row[16]
+                    }
+                    children.append(child)
+
+            user['children'] = children
+
+            return jsonify(user)
         else:
             return jsonify({'error': 'User not found'})
     else:
-        # Retrieve all users
-        query = "SELECT * FROM users"
+        # Query to retrieve all users and their associated children
+        query = """
+        SELECT u.id, u.name, u.pw, u.age, u.intro, u.address, u.image_path,
+               u.created_at, u.edited_at, u.deleted_at,
+               c.id, c.name, c.gender_id, c.birthday, c.created_at, c.edited_at, c.deleted_at
+        FROM users u
+        LEFT JOIN children c ON u.id = c.parent_id
+        """
+
         cursor.execute(query)
-        users = cursor.fetchall()
+        rows = cursor.fetchall()
 
-        user_list = []
-        for user in users:
-            user_dict = {
-                'id': user[0],
-                'name': user[1],
-                'pw': user[2],
-                'age': user[3],
-                'intro': user[4],
-                'address': user[5],
-                'image_path': user[6],
-                'created_at': user[7].strftime('%Y-%m-%d %H:%M:%S'),
-                'edited_at': user[8].strftime('%Y-%m-%d %H:%M:%S'),
-                'deleted_at': user[9]
+        users = []
+        for row in rows:
+            user = {
+                'id': row[0],
+                'name': row[1],
+                'pw': row[2],
+                'age': row[3],
+                'intro': row[4],
+                'address': row[5],
+                'image_path': row[6],
+                'created_at': row[7].strftime('%Y-%m-%d %H:%M:%S'),
+                'edited_at': row[8].strftime('%Y-%m-%d %H:%M:%S'),
+                'deleted_at': row[9]
             }
-            user_list.append(user_dict)
 
-        return jsonify(user_list)
+            if row[10]:  # Check if the child ID is not null (indicating a child record exists)
+                child = {
+                    'id': row[10],
+                    'name': row[11],
+                    'gender_id': row[12],
+                    'birthday': row[13].strftime('%Y-%m-%d'),
+                    'created_at': row[14].strftime('%Y-%m-%d %H:%M:%S'),
+                    'edited_at': row[15].strftime('%Y-%m-%d %H:%M:%S'),
+                    'deleted_at': row[16]
+                }
+                user.setdefault('children', []).append(child)
 
-    # Connect to the database
-    # db_connection = mysql.connector.connect(
-    #     host='localhost',
-    #     user='root',
-    #     password='Duyan278#',
-    #     database='mamatomo_database'
-    # )
+            users.append(user)
 
-    # Execute the SQL query to fetch the user(s) by username
-    # cursor = db_connection.cursor()
-    # query = "SELECT * FROM users WHERE name = %s"
-    # cursor.execute(query, (username,))
-    # users = cursor.fetchall()
-    # print("username")
-    # print(username)
-    # print(users)
-    # print(type(users[0][2]))
-    # # Close the database connection
-    # cursor.close()
-    # db_connection.close()
-
-    # # Convert the user(s) data to a JSON response
-    # response = []
-    # for user in users:
-    #     user_data = {
-    #         'id': user[0],
-    #         'name': user[1],
-    #         'pw': user[2],
-    #         'age': user[3],
-    #         'intro': user[4],
-    #         'address': user[5],
-    #         'image_path': user[6],
-    #         'created_at': str(user[7]),
-    #         'edited_at': str(user[8]),
-    #         'deleted_at': str(user[9])
-    #     }
-    #     response.append(user_data)
-    response = {"pw": users[0][2]}
-    return jsonify(response)
-
+        return jsonify(users)
+    
 
 @app.route('/create_user', methods=['POST'])
 def create_user():
@@ -167,9 +256,9 @@ def create_user():
     for child_data in children:
         child_name = child_data.get('name')
         gender_id = child_data.get('gender_id')
-        child_days = child_data.get('days')
-        child_query = "INSERT INTO children (parent_id, name, gender_id, days) VALUES (%s, %s, %s, %s)"
-        cursor.execute(child_query, (user_id, child_name, gender_id, child_days))
+        birthday = child_data.get('birthday')
+        child_query = "INSERT INTO children (parent_id, name, gender_id, birthday) VALUES (%s, %s, %s, %s)"
+        cursor.execute(child_query, (user_id, child_name, gender_id, birthday))
 
     # Commit the changes and close the cursor and database connection
     db_connection.commit()

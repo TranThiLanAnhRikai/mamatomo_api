@@ -4,6 +4,7 @@ import uuid
 import json
 import mysql.connector
 import base64
+from flask import send_file
 
 
 folder_name = "users_avatars"
@@ -225,12 +226,10 @@ def create_user():
     # Specify the path to save the image
     image_path = os.path.join(image_folder, unique_filename)
 
-    # image_folder = "user_avatars"
-    # uniq_filename = "3dd..fdasfsd.jpg"
-
-    # image_path = user_avatars/3dd..fdasfsd.jpg
-
     # Save the image to the server folder
+
+    #try absolute path
+    image_url = f"http://localhost:8000/{folder_name}/{unique_filename}"
     with open(image_path, 'wb') as file:
         file.write(image_data)
     # Connect to the database
@@ -244,7 +243,7 @@ def create_user():
     # Execute the SQL query to insert the new user into the database
     cursor = db_connection.cursor()
     user_query = "INSERT INTO users (name, pw, age, intro, address, image_path) VALUES (%s, %s, %s, %s, %s, %s)"
-    cursor.execute(user_query, (name, password, age, intro, address, image_path))
+    cursor.execute(user_query, (name, password, age, intro, address, image_url))
     user_id = cursor.lastrowid  # Get the ID of the newly inserted user
 
     # Insert the chosen hobbies into the users_hobbies table
@@ -269,6 +268,38 @@ def create_user():
     response = {'user_id': user_id}
     return jsonify(response)
 
+@app.route('/get_daily_message', methods=['POST'])
+def get_daily_message():
+    db_connection = mysql.connector.connect(
+        host='localhost',
+        user='root',
+        password='Duyan278#',
+        database='mamatomo_database'
+    )
+    print("ua")
+    days = int(request.json['days'])
+    print(days)
+    cursor = db_connection.cursor()
+    query = "SELECT id, message, image_path FROM daily_messages WHERE days = %s"
+    cursor.execute(query, (days,))
+    print("test")
+    result = cursor.fetchone()
+    cursor.close()
+    print(result)
+    daily_message = {
+            'id': str(result[0]),
+            'message': result[1],
+            'image_path': result[2]
+    }
+    print(daily_message)
+    response = {'message': daily_message['message'], 'image_path': daily_message['image_path']}
+    return jsonify(response)
+
+    
+@app.route('/users_avatars/<filename>', methods=['GET'])
+def serve_avatar(filename):
+    avatar_path = os.path.join(image_folder, filename)
+    return send_file(avatar_path, mimetype='image/jpeg')
 
 if __name__ == '__main__':
     app.run(host='localhost', port=8000)
